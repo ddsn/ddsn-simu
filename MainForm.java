@@ -5,7 +5,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 /**
- * Created by Julian M. <julian@ddspn.org> on 21.02.14.
+ * Created by Julian M. <julian@ddsn.org> on 21.02.14.
  */
 public class MainForm {
     private JTabbedPane tabbedPane1;

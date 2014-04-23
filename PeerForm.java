@@ -5,7 +5,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 /**
- * Created by User_2 on 21.02.14.
+ * Created by Julian M. <julian@ddsn.org> on 21.02.14.
  */
 public class PeerForm {
     private JTabbedPane tabbedPane1;
