@@ -147,7 +147,7 @@ public class Peer {
                     }
 
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(2500);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -249,10 +249,10 @@ public class Peer {
 
         if (request) {
             for (int i = layer + 1; i < outConnections.size(); i++) {
-                //if (outConnections.get(i).lastBroadcast == false) {
+                if (outConnections.get(i).lastBroadcast == false) {
                     Ddsn.messages.addLast(new Message.BroadCastMessage(outConnections.get(i).getPeer(), this, true));
                     outConnections.get(i).lastBroadcast = true;
-                //}
+                }
             }
         } else {
             if (blocks.size() > capacity) {
@@ -261,10 +261,10 @@ public class Peer {
 
             for (int i = layer + 1; i < outConnections.size(); i++) {
                 if (getRequestingInConnection(i, outConnections.get(i).getPeer()) == null) {
-                    //if (outConnections.get(i).lastBroadcast == true) {
+                    if (outConnections.get(i).lastBroadcast == true) {
                         Ddsn.messages.addLast(new Message.BroadCastMessage(outConnections.get(i).getPeer(), this, false));
                         outConnections.get(i).lastBroadcast = false;
-                    //}
+                    }
                 }
             }
         }
