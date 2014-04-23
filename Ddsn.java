@@ -6,14 +6,14 @@ import java.util.LinkedList;
  */
 public class Ddsn {
 
-    private static LinkedList<Peer> peers = new LinkedList<Peer>();
+    public static LinkedList<Peer> peers = new LinkedList<Peer>();
     public static MainForm mainForm;
     public static LinkedList<Message> messages = new LinkedList<Message>();
 
     public static void main(String[] args) {
         mainForm = new MainForm();
 
-        JFrame frame = new JFrame("DDSN Simulation v0.3");
+        JFrame frame = new JFrame("DDSN Simulation v0.4");
         frame.setContentPane(mainForm.getMainPanel());
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
@@ -37,19 +37,17 @@ public class Ddsn {
         }).start();
 
         while (true) {
-            synchronized (messages) {
-                if (!messages.isEmpty()) {
+            if (!messages.isEmpty()) {
+                synchronized (messages) {
                     Message message = messages.removeFirst();
                     message.getReceiver().receiveMessage(message);
-
-                    //mainForm.getMainTextPane().setText(messages.size() + " messages in the network.");
                 }
-            }
-
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            } else {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }

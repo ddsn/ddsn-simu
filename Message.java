@@ -63,4 +63,39 @@ public abstract class Message {
 
     }
 
+    public static class ByeMessage extends Message {
+
+        public ByeMessage(Peer receiver, Peer sender) {
+            super(receiver, sender);
+        }
+
+    }
+
+    public static class IntroductionMessage extends Message {
+
+        private Peer peer;
+        private int layer;
+        private boolean out;
+
+        public IntroductionMessage(Peer receiver, Peer sender, Peer peer, int layer, boolean out) {
+            super(receiver, sender);
+            this.peer = peer;
+            this.layer = layer;
+            this.out = out;
+        }
+
+        public Peer getPeer() {
+            return peer;
+        }
+
+        public int getLayer() {
+            return layer;
+        }
+
+        public boolean isOut() {
+            return out;
+        }
+
+    }
+
 }

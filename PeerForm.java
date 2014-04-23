@@ -119,8 +119,10 @@ public class PeerForm {
         tabbedPane1.setTitleAt(1, "Blocks (" + peer.getBlocks().size() + ")");
 
         RefreshableListModel<Block> blockListModel = new RefreshableListModel<Block>();
-        for (Block block : peer.getBlocks()) {
-            blockListModel.addElement(block);
+        synchronized (peer.getBlocks()) {
+            for (Block block : peer.getBlocks()) {
+                blockListModel.addElement(block);
+            }
         }
         blockList.setModel(blockListModel);
     }
@@ -149,8 +151,10 @@ public class PeerForm {
         tabbedPane1.setTitleAt(4, "Queued (" + peer.getQueued().size() + ")");
 
         RefreshableListModel<Peer> queuedListModel = new RefreshableListModel<Peer>();
-        for (Peer peer1 : peer.getQueued()) {
-            queuedListModel.addElement(peer1);
+        synchronized (peer.getQueued()) {
+            for (Peer peer1 : peer.getQueued()) {
+                queuedListModel.addElement(peer1);
+            }
         }
         queuedList.setModel(queuedListModel);
     }

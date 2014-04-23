@@ -15,6 +15,7 @@ public class MainForm {
     private JButton destroyButton;
     private JButton connectNewButton;
     private JTextPane textPane1;
+    private JButton consistencyCheckButton;
 
     private RefreshableListModel<PeerListElement> peerListModel;
 
@@ -32,12 +33,17 @@ public class MainForm {
 
         @Override
         public String toString() {
-            return "peer #" + peer.getId() +
-                    " (" + peer.getCode() + ") " +
-                    " | blocks: " + peer.getBlocks().size() +
-                    " | out: " + peer.getOutConnections().size() +
-                    " | in: " + peer.getInConnections().size() +
-                    " | queued: " + peer.getQueued().size();
+            StringBuffer sb = new StringBuffer();
+            sb.append("Peer #" + peer.getId());
+            sb.append(" (" + peer.getCode() + ")");
+            sb.append(" | blocks: " + peer.getBlocks().size());
+            sb.append(" | out: " + peer.getOutConnections().size());
+            sb.append(" | in: " + peer.getInConnections().size());
+            sb.append(" | queued: " + peer.getQueued().size());
+            if (peer.overloaded() > 0) {
+                sb.append(" | overloaded by " + peer.overloaded());
+            }
+            return sb.toString();
         }
 
     }
@@ -70,6 +76,43 @@ public class MainForm {
                 peerFrame.setContentPane(new PeerForm(selectedPeer).getMainPanel());
                 peerFrame.pack();
                 peerFrame.setVisible(true);
+            }
+        });
+        consistencyCheckButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                System.err.println("Start consistency check...");
+                for (Peer peer : Ddsn.peers) {
+                    for (Peer.OutConnection outConnection : peer.getOutConnections()) {
+                        if (outConnection.getPeer() == null) {
+                            System.err.println(peer + " has no peer for layer " + outConnection.getLayer());
+                            continue;
+                        }
+
+                        boolean found = false;
+                        for (Peer.InConnection inConnection : outConnection.getPeer().getInConnections()) {
+                            if (inConnection.getPeer() == peer && inConnection.getLayer() == outConnection.getLayer()) {
+                                found = true;
+                            }
+                        }
+                        if (!found) {
+                            System.err.println("Detected inconsistency: no inConnection at " + outConnection.getPeer() + " for outConnection of " + peer + " (layer " + outConnection.getLayer() + ")");
+                        }
+                    }
+
+                    for (Peer.InConnection inConnection : peer.getInConnections()) {
+                        boolean found = false;
+                        for (Peer.OutConnection outConnection : inConnection.getPeer().getOutConnections()) {
+                            if (outConnection.getPeer() == peer && inConnection.getLayer() == outConnection.getLayer()) {
+                                found = true;
+                            }
+                        }
+                        if (!found) {
+                            System.err.println("Detected inconsistency: no outConnection at " + inConnection.getPeer() + " for inConnection of " + peer + " (layer " + inConnection.getLayer() + ")");
+                        }
+                    }
+                }
+                System.err.println("...end consistency check");
             }
         });
     }
