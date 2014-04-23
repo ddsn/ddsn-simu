@@ -9,6 +9,7 @@ public class Peer {
     public class OutConnection {
         private Peer peer;
         private int layer;
+        private boolean lastBroadcast = false;
 
         OutConnection(Peer peer, int layer) {
             this.peer = peer;
@@ -94,36 +95,22 @@ public class Peer {
             public void run() {
                 while (true) {
                     if (!queued.isEmpty()) {
-                        if (blocks.size() > capacity) {
-                            synchronized (queued) {
+                        synchronized (Ddsn.messages) {
+                            if (blocks.size() > capacity) {
                                 reorganize(queued.removeFirst());
                             }
-                        }
 
-                        if (blocks.size() <= capacity) {
-                            if (!queued.isEmpty()) {
+                            if (blocks.size() <= capacity) {
                                 final InConnection requestingInConnection = getLowestLevelRequestingInConnection();
 
                                 if (requestingInConnection != null) {
-                                    new Thread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            try {
-                                                Thread.sleep((int)(Math.random() * 1000) + 1000);
-                                            } catch (InterruptedException e) {
-                                                e.printStackTrace();
-                                            }
-                                            synchronized (queued) {
-                                                if (!queued.isEmpty()) {
-                                                    requestingInConnection.getPeer().connect(queued.removeFirst());
+                                    if (!queued.isEmpty()) {
+                                        Ddsn.messages.addLast(new Message.ConnectPeerMessage(requestingInConnection.getPeer(), that, queued.removeFirst()));
 
-                                                    for (WeakReference<PeerForm> form : forms) {
-                                                        form.get().redrawQueued();
-                                                    }
-                                                }
-                                            }
+                                        for (WeakReference<PeerForm> form : forms) {
+                                            form.get().redrawQueued();
                                         }
-                                    }).start();
+                                    }
                                 }
                             }
                         }
@@ -151,11 +138,14 @@ public class Peer {
             @Override
             public void run() {
                 while (true) {
-                    if (blocks.size() > capacity) {
-                        broadcastPeerRequest(true);
-                    } else {
-                        broadcastPeerRequest(false);
+                    synchronized (Ddsn.messages) {
+                        if (blocks.size() > capacity) {
+                            broadcastPeerRequest(true);
+                        } else {
+                            broadcastPeerRequest(false);
+                        }
                     }
+
                     try {
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
@@ -172,11 +162,25 @@ public class Peer {
         this.forms.add(new WeakReference<PeerForm>(form));
     }
 
-    public void store(final Block block) {
+    public void receiveMessage(Message message) {
+        if (message instanceof Message.StoreBlockMessage) {
+            Message.StoreBlockMessage storeBlockMessage = (Message.StoreBlockMessage) message;
+
+            store(storeBlockMessage.getBlock());
+        } else if (message instanceof Message.ConnectPeerMessage) {
+            Message.ConnectPeerMessage connectPeerMessage = (Message.ConnectPeerMessage) message;
+
+            connect(connectPeerMessage.getPeer());
+        } else if (message instanceof Message.BroadCastMessage) {
+            Message.BroadCastMessage broadCastMessage = (Message.BroadCastMessage) message;
+
+            setPeerRequest(broadCastMessage.getSender(), broadCastMessage.getNeed());
+        }
+    }
+
+    private void store(final Block block) {
         if (code.contains(block.getCode())) {
-            synchronized (blocks) {
-                blocks.add(block);
-            }
+            blocks.add(block);
 
             for (WeakReference<PeerForm> form : forms) {
                 form.get().redrawBlocks();
@@ -186,17 +190,7 @@ public class Peer {
             Ddsn.mainForm.peerChanged(this);
         } else {
             final int layer = code.getDifferingLayer(block.getCode());
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Thread.sleep((int)(Math.random() * 100) + 100);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    outConnections.get(layer).getPeer().store(block);
-                }
-            }).start();
+            Ddsn.messages.addLast(new Message.StoreBlockMessage(outConnections.get(layer).getPeer(), this, block));
         }
     }
 
@@ -211,24 +205,33 @@ public class Peer {
         return null;
     }
 
-    private void broadcastPeerRequest(boolean need) {
+    private synchronized void broadcastPeerRequest(boolean need) {
         if (need) {
             for (OutConnection outConnection : outConnections) {
-                outConnection.getPeer().setPeerRequest(this, true);
+                //if (outConnection.lastBroadcast == false) {
+                    Ddsn.messages.addLast(new Message.BroadCastMessage(outConnection.getPeer(), this, true));
+                    outConnection.lastBroadcast = true;
+                //}
             }
         } else {
             for (OutConnection outConnection : outConnections) {
                 InConnection inConnection = getRequestingInConnection(outConnection.layer, outConnection.peer);
                 if (inConnection != null) {
-                    outConnection.getPeer().setPeerRequest(this, true);
+                    //if (outConnection.lastBroadcast == false) {
+                        Ddsn.messages.addLast(new Message.BroadCastMessage(outConnection.getPeer(), this, true));
+                        outConnection.lastBroadcast = true;
+                    //}
                 } else {
-                    outConnection.getPeer().setPeerRequest(this, false);
+                    //if (outConnection.lastBroadcast == true) {
+                        Ddsn.messages.addLast(new Message.BroadCastMessage(outConnection.getPeer(), this, false));
+                        outConnection.lastBroadcast = false;
+                    //}
                 }
             }
         }
     }
 
-    public void setPeerRequest(Peer peer, boolean request) {
+    private synchronized void setPeerRequest(Peer peer, boolean request) {
         int layer = -1;
 
         for (InConnection inConnection : inConnections) {
@@ -246,17 +249,22 @@ public class Peer {
 
         if (request) {
             for (int i = layer + 1; i < outConnections.size(); i++) {
-                outConnections.get(i).getPeer().setPeerRequest(this, true);
+                //if (outConnections.get(i).lastBroadcast == false) {
+                    Ddsn.messages.addLast(new Message.BroadCastMessage(outConnections.get(i).getPeer(), this, true));
+                    outConnections.get(i).lastBroadcast = true;
+                //}
             }
         } else {
             if (blocks.size() > capacity) {
-                System.out.println("  ... I myself am in need of peers!");
                 return;
             }
 
             for (int i = layer + 1; i < outConnections.size(); i++) {
                 if (getRequestingInConnection(i, outConnections.get(i).getPeer()) == null) {
-                    outConnections.get(i).getPeer().setPeerRequest(this, false);
+                    //if (outConnections.get(i).lastBroadcast == true) {
+                        Ddsn.messages.addLast(new Message.BroadCastMessage(outConnections.get(i).getPeer(), this, false));
+                        outConnections.get(i).lastBroadcast = false;
+                    //}
                 }
             }
         }
@@ -275,6 +283,8 @@ public class Peer {
     }
 
     public void setCode(Code code) {
+        // TODO: only allow though message
+
         this.code = code;
 
         inConnections = new HashSet<InConnection>();
@@ -283,9 +293,7 @@ public class Peer {
     }
 
     public void connect(Peer peer) {
-        synchronized (queued) {
-            queued.add(peer);
-        }
+        queued.add(peer);
     }
 
     private void reorganize(final Peer peer) {
@@ -330,26 +338,14 @@ public class Peer {
 
         // hand blocks
 
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                synchronized (blocks) {
-                    Iterator<Block> iterator = blocks.iterator();
-                    while (iterator.hasNext()) {
-                        Block block = iterator.next();
-                        if (!code.contains(block.getCode())) {
-                            peer.store(block);
-                            iterator.remove();
-                            try {
-                                Thread.sleep((int) (Math.random() * 100) + 100);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
+        Iterator<Block> iterator = blocks.iterator();
+        while (iterator.hasNext()) {
+            Block block = iterator.next();
+            if (!code.contains(block.getCode())) {
+                Ddsn.messages.addLast(new Message.StoreBlockMessage(peer, this, block));
+                iterator.remove();
             }
-        }).start();
+        }
 
         for (WeakReference<PeerForm> form : forms) {
             form.get().redrawOutConnections();
@@ -364,8 +360,10 @@ public class Peer {
         Ddsn.mainForm.peerChanged(this);
         Ddsn.mainForm.peerChanged(peer);
 
-        for (OutConnection outConnection : outConnections) {
-            Ddsn.mainForm.peerChanged(outConnection.peer);
+        synchronized (peer.outConnections) {
+            for (OutConnection outConnection : outConnections) {
+                Ddsn.mainForm.peerChanged(outConnection.peer);
+            }
         }
     }
 

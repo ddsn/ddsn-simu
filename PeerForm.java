@@ -89,7 +89,7 @@ public class PeerForm {
                 }
 
                 // now, hand block to selected peer
-                peer.store(new Block(code));
+                Ddsn.messages.addLast(new Message.StoreBlockMessage(peer, null, new Block(code)));
 
                 redrawBlocks();
             }

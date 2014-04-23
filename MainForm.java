@@ -14,6 +14,7 @@ public class MainForm {
     private JButton viewButton;
     private JButton destroyButton;
     private JButton connectNewButton;
+    private JTextPane textPane1;
 
     private RefreshableListModel<PeerListElement> peerListModel;
 
@@ -58,7 +59,7 @@ public class MainForm {
                 Peer selectedPeer = ((PeerListElement) peerList.getSelectedValue()).getPeer();
                 Peer newPeer = new Peer();
                 Ddsn.addPeer(newPeer);
-                selectedPeer.connect(newPeer);
+                Ddsn.messages.addLast(new Message.ConnectPeerMessage(selectedPeer, null, newPeer));
             }
         });
         viewButton.addActionListener(new ActionListener() {
@@ -75,6 +76,10 @@ public class MainForm {
 
     public JPanel getMainPanel() {
         return mainPanel;
+    }
+
+    public JTextPane getMainTextPane() {
+        return textPane1;
     }
 
     public void addPeer(Peer peer) {
