@@ -177,17 +177,25 @@ public class Peer {
                 while (true) {
                     if (inConnections.size() > outConnections.size() * 2) {
                         // first, construct a map mapping the number of inConnections to every layer
+                        int maxNumber = 0;
                         HashMap<Integer, Integer> layerNumbers = new HashMap<Integer, Integer>();
                         for (InConnection inConnection : inConnections) {
                             if (layerNumbers.containsKey(inConnection.layer)) {
-                                layerNumbers.put(inConnection.layer, layerNumbers.get(inConnection.layer) + 1);
+                                int number = layerNumbers.get(inConnection.layer);
+                                layerNumbers.put(inConnection.layer, ++number);
+                                if (maxNumber < number) {
+                                    maxNumber = number;
+                                }
                             } else {
                                 layerNumbers.put(inConnection.layer, 1);
+                                if (maxNumber == 0) {
+                                    maxNumber = 1;
+                                }
                             }
                         }
 
                         for (Map.Entry<Integer, Integer> layerNumber : layerNumbers.entrySet()) {
-                            if (layerNumber.getValue() > 2) {
+                            if (layerNumber.getValue() == maxNumber) { // take the layer you have the most incoming connections from
                                 // aha!
                                 int layer = layerNumber.getKey();
 
@@ -195,19 +203,36 @@ public class Peer {
 
                                 InConnection kick = null;
 
+                                int random = (int) (Math.random() * maxNumber);
+
                                 for (InConnection inConnection : inConnections) {
-                                    if (inConnection.layer == layer) {
+                                    if (inConnection.layer == layer && random-- == 0) {
                                         kick = inConnection;
                                         break;
                                     }
                                 }
 
-                                // first, find a replacement
+                                if (kick == null) {
+                                    System.err.println("no one found to kick...");
+                                    break;
+                                }
+
+                                // then, find a replacement
 
                                 Peer replacement = null;
 
+                                int replacements = 0;
+
                                 for (InConnection inConnection : inConnections) {
                                     if (inConnection.layer > layer) {
+                                        replacements++;
+                                    }
+                                }
+
+                                random = (int) (Math.random() * replacements);
+
+                                for (InConnection inConnection : inConnections) {
+                                    if (inConnection.layer > layer && random-- == 0) {
                                         replacement = inConnection.getPeer();
                                     }
                                 }
@@ -315,7 +340,7 @@ public class Peer {
         return null;
     }
 
-    private synchronized void broadcastPeerRequest(boolean need) {
+    private void broadcastPeerRequest(boolean need) {
         if (need) {
             for (OutConnection outConnection : outConnections) {
                 if (outConnection.getPeer() == null) {
@@ -349,7 +374,7 @@ public class Peer {
         }
     }
 
-    private synchronized void setPeerRequest(Peer peer, boolean request) {
+    private void setPeerRequest(Peer peer, boolean request) {
         int layer = -1;
 
         for (InConnection inConnection : inConnections) {
@@ -363,28 +388,6 @@ public class Peer {
         if (layer == -1) {
             // shouldn't happen
             return;
-        }
-
-        if (request) {
-            for (int i = layer + 1; i < outConnections.size(); i++) {
-                if (outConnections.get(i).lastBroadcast == false) {
-                    Ddsn.messages.addLast(new Message.BroadCastMessage(outConnections.get(i).getPeer(), this, true));
-                    outConnections.get(i).lastBroadcast = true;
-                }
-            }
-        } else {
-            if (blocks.size() > capacity) {
-                return;
-            }
-
-            for (int i = layer + 1; i < outConnections.size(); i++) {
-                if (getRequestingInConnection(i, outConnections.get(i).getPeer()) == null) {
-                    if (outConnections.get(i).lastBroadcast == true) {
-                        Ddsn.messages.addLast(new Message.BroadCastMessage(outConnections.get(i).getPeer(), this, false));
-                        outConnections.get(i).lastBroadcast = false;
-                    }
-                }
-            }
         }
     }
 

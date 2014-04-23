@@ -81,11 +81,13 @@ public class MainForm {
         consistencyCheckButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                int inconsistencies = 0;
                 System.err.println("Start consistency check...");
                 for (Peer peer : Ddsn.peers) {
                     for (Peer.OutConnection outConnection : peer.getOutConnections()) {
                         if (outConnection.getPeer() == null) {
                             System.err.println(peer + " has no peer for layer " + outConnection.getLayer());
+                            inconsistencies++;
                             continue;
                         }
 
@@ -97,6 +99,7 @@ public class MainForm {
                         }
                         if (!found) {
                             System.err.println("Detected inconsistency: no inConnection at " + outConnection.getPeer() + " for outConnection of " + peer + " (layer " + outConnection.getLayer() + ")");
+                            inconsistencies++;
                         }
                     }
 
@@ -109,10 +112,14 @@ public class MainForm {
                         }
                         if (!found) {
                             System.err.println("Detected inconsistency: no outConnection at " + inConnection.getPeer() + " for inConnection of " + peer + " (layer " + inConnection.getLayer() + ")");
+                            inconsistencies++;
                         }
                     }
                 }
+                System.err.println("Found " + inconsistencies + " inconsistencies.");
                 System.err.println("...end consistency check");
+
+                JOptionPane.showMessageDialog(null, "Found " + inconsistencies + " inconsistencies.", inconsistencies == 0 ? "Success" : "Inconsistencies", JOptionPane.INFORMATION_MESSAGE);
             }
         });
     }
