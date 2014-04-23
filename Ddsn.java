@@ -13,7 +13,7 @@ public class Ddsn {
     public static void main(String[] args) {
         mainForm = new MainForm();
 
-        JFrame frame = new JFrame("DDSN Simulation v0.2a");
+        JFrame frame = new JFrame("DDSN Simulation v0.3");
         frame.setContentPane(mainForm.getMainPanel());
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();

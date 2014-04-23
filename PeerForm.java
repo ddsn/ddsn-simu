@@ -18,6 +18,7 @@ public class PeerForm {
     private JButton addRandomBlockButton;
     private JButton viewButton2;
     private JList inConnectionList;
+    private JButton add10RandomBlocks;
 
     private Peer peer;
 
@@ -90,6 +91,24 @@ public class PeerForm {
 
                 // now, hand block to selected peer
                 Ddsn.messages.addLast(new Message.StoreBlockMessage(peer, null, new Block(code)));
+
+                redrawBlocks();
+            }
+        });
+        add10RandomBlocks.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                for (int j = 0; j < 10; j++) {
+                    // first, create random code
+                    int codeLength = 8 + (int) (Math.random() * 25);
+                    Code code = new Code();
+                    for (int i = 0; i < codeLength; i++) {
+                        code.setLayerCode(i, Math.random() < 0.5 ? 0 : 1);
+                    }
+
+                    // now, hand block to selected peer
+                    Ddsn.messages.addLast(new Message.StoreBlockMessage(peer, null, new Block(code)));
+                }
 
                 redrawBlocks();
             }

@@ -138,11 +138,13 @@ public class Peer {
             @Override
             public void run() {
                 while (true) {
-                    synchronized (Ddsn.messages) {
-                        if (blocks.size() > capacity) {
-                            broadcastPeerRequest(true);
-                        } else {
-                            broadcastPeerRequest(false);
+                    if (Ddsn.messages.size() < 300) { // wait if network is overloaded
+                        synchronized (Ddsn.messages) {
+                            if (blocks.size() > capacity) {
+                                broadcastPeerRequest(true);
+                            } else {
+                                broadcastPeerRequest(false);
+                            }
                         }
                     }
 
