@@ -1,5 +1,5 @@
 /**
- * Created by User_2 on 23.04.2014.
+ * Created by Julian M. <julian@ddsn.org> on 23.04.2014.
  */
 public abstract class Message {
 
